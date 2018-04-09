@@ -36,7 +36,7 @@ defmodule Hatoba.Download do
   def handle_call(:start, _from, %__MODULE__{:status => :not_started} = state) do
     parent = self()
   {:ok, pid} = Task.Supervisor.start_child(Hatoba.TaskSupervisor, fn ->
-      Hatoba.Download.Stdout.run(Hatoba.Download.Youtube, parent, state.url)
+      Hatoba.Download.StdoutTask.run(Hatoba.Download.Youtube, parent, "", state.url)
     end)
   ref = Process.monitor(pid)
   {:reply, pid, %__MODULE__{:status => :started, :pid => pid, :ref => ref}}
@@ -77,12 +77,10 @@ defmodule Hatoba.Download do
 
   def handle_info({:DOWN, _ref, :process, pid, _}, state) do
     ^pid = state.pid
-    IO.puts "Child task was downed!"
     {:noreply, %__MODULE__{:status => :failed}}
   end
 
   def handle_info({:EXIT, _from, reason}, _) do
-    IO.puts "Child task was killed! #{reason}"
-    {:noreply, %__MODULE__{:status => :killed, :pid => nil}}
+    {:noreply, %__MODULE__{:status => :killed}}
   end
 end

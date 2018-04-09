@@ -24,6 +24,7 @@ defmodule Hatoba.MixProject do
     [
       {:porcelain, "~> 2.0"},
       {:httpotion, "~> 3.1.0"},
+      {:poison, "~> 3.1"},
       {:mock, "~> 0.3.0", only: :test}
     ]
   end

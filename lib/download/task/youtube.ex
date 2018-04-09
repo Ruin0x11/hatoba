@@ -1,5 +1,7 @@
 defmodule Hatoba.Download.Youtube do
-  @behaviour Hatoba.Download.Stdout
+  @behaviour Hatoba.Download.StdoutTask
+
+  ## TODO: start_link as part of behaviour
 
   def process_data(data) do
     cond do
@@ -9,5 +11,5 @@ defmodule Hatoba.Download.Youtube do
     end
   end
 
-  def cmd(url), do: "youtube-dl #{url}"
+  def cmd(path, url), do: "youtube-dl -o #{path}/%(title)s-%(id)s.%(ext)s #{url}"
 end
