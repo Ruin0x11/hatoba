@@ -36,7 +36,7 @@ defmodule Hatoba.Download do
   def handle_call(:start, _from, %__MODULE__{:status => :not_started} = state) do
     parent = self()
   {:ok, pid} = Task.Supervisor.start_child(Hatoba.TaskSupervisor, fn ->
-      Hatoba.Download.Youtube.run(parent, state.url)
+      Hatoba.Download.Stdout.run(Hatoba.Download.Youtube, parent, state.url)
     end)
   ref = Process.monitor(pid)
   {:reply, pid, %__MODULE__{:status => :started, :pid => pid, :ref => ref}}

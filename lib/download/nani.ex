@@ -39,7 +39,7 @@ defmodule Hatoba.Nani do
     |> URI.to_string
     |> HTTPotion.get
     |> Map.from_struct
-    Map.get(data, :status_code) == 200 && String.contains?(content_type(data),"application/json")
+    Map.get(data, :status_code) == 200 && String.contains?(content_type(data), "application/json")
   end
 
   defp is_torrent(uri) do
@@ -59,9 +59,7 @@ defmodule Hatoba.Nani do
     content_type = uri
     |> HTTPotion.get
     |> content_type
-    Enum.any?(["image/png",
-               "image/jpeg",
-               "image/gif"], fn(s) -> content_type == s end)
+    Enum.member?(["image/png", "image/jpeg", "image/gif"], content_type)
   end
 
   defp content_type(response) do

@@ -4,9 +4,13 @@ defmodule Hatoba.Download.YoutubeTest do
   import Mock
   alias Porcelain.Result
 
+  def run(url) do
+    Hatoba.Download.Stdout.start_link([Hatoba.Download.Youtube, self(), url])
+  end
+
   test "provides progress" do
     with_mock Porcelain, [spawn_shell: fn(_, _) -> %{ :pid => 0 } end] do
-      {:ok, pid} = Hatoba.Download.Youtube.start_link([self(), "http://www.youtube.com/watch?v=12345"])
+      {:ok, pid} = run("http://www.youtube.com/watch?v=12345")
 
       send pid, {0, :data, :out, "[download] 34% of 10MB"}
 
@@ -16,7 +20,7 @@ defmodule Hatoba.Download.YoutubeTest do
 
   test "reports success" do
     with_mock Porcelain, [spawn_shell: fn(_, _) -> %{ :pid => 0 } end] do
-      {:ok, pid} = Hatoba.Download.Youtube.start_link([self(), "http://www.youtube.com/watch?v=12345"])
+      {:ok, pid} = run("http://www.youtube.com/watch?v=12345")
 
       send pid, {0, :result, %Result{status: 0}}
 
@@ -26,7 +30,7 @@ defmodule Hatoba.Download.YoutubeTest do
 
   test "reports failure" do
     with_mock Porcelain, [spawn_shell: fn(_, _) -> %{ :pid => 0 } end] do
-      {:ok, pid} = Hatoba.Download.Youtube.start_link([self(), "http://www.youtube.com/watch?v=12345"])
+      {:ok, pid} = run("http://www.youtube.com/watch?v=12345")
 
       send pid, {0, :result, %Result{status: 1}}
 

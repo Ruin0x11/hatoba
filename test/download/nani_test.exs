@@ -84,8 +84,8 @@ defmodule Hatoba.NaniTest do
   end
 
   test "fails discerning malformed URLs" do
-    assert Hatoba.Nani.source_type("youtu.be/watch?v=QbliRYZdJ4I") == :unknown
     assert Hatoba.Nani.source_type("blah") == :unknown
+    assert Hatoba.Nani.source_type("youtu.be/watch?v=QbliRYZdJ4I") == :unknown
   end
 
   test "fails discerning unsupported URLs" do
