@@ -23,9 +23,10 @@ defmodule Hatoba.Download.Youtube do
   end
 
   defp process_data(parent, data) do
-    case Regex.run(~r/.*\[download\] ([0-9]+)% of .*/, data) do
-      [_, amount] -> with {num, _} <- Integer.parse(amount), do: progress(parent, num)
-      _ -> nil
+    cond do
+      [_, amount] = Regex.run(~r/.*\[download\] ([0-9]+)% of .*/, data) ->
+        with {num, _} <- Integer.parse(amount), do: progress(parent, num)
+      true -> nil
     end
   end
 
