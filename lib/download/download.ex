@@ -5,9 +5,10 @@ defmodule Hatoba.Download do
     status: :not_started,
     url: "",
     pid: nil,
-    progress: 0
+    progress: 0,
+    ref: nil
 
-  def start_link(id, url) do
+  def start_link([id, url]) do
     GenServer.start_link(__MODULE__, [id, url], name: via_tuple(id))
   end
 
@@ -37,7 +38,8 @@ defmodule Hatoba.Download do
   {:ok, pid} = Task.Supervisor.start_child(Hatoba.TaskSupervisor, fn ->
       Hatoba.Download.Youtube.run(parent, state.url)
     end)
-    {:reply, pid, %__MODULE__{:status => :started, :pid => pid}}
+  ref = Process.monitor(pid)
+  {:reply, pid, %__MODULE__{:status => :started, :pid => pid, :ref => ref}}
   end
 
   def handle_call(:start, _from, %__MODULE__{:status => :running} = state) do
@@ -55,8 +57,8 @@ defmodule Hatoba.Download do
     {:noreply, %__MODULE__{ state | :progress => progress}}
   end
 
-  def handle_info({:success}, _) do
-    {:noreply, %__MODULE__{:status => :finished, :progress => 100}}
+  def handle_info({:success}, state) do
+    {:noreply, %__MODULE__{ state | :status => :finished, :progress => 100}}
   end
 
   def handle_info({:failure, status}, _) do
