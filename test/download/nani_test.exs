@@ -15,13 +15,20 @@ defmodule Hatoba.NaniTest do
     {:ok, foo: "foo"}
   end
 
-  defp response(code), do: %Response{status_code: code, headers: %Headers{ hdrs: %{} }}
+  defp content_response(content_type, code \\ 200) do
+    %Response {
+      status_code: code,
+      headers: %Headers { hdrs: %{ "content-type" => content_type } }
+    }
+  end
 
-  test "discerns youtube-dl source" do
+  defp response(code), do: content_response("text/html", code)
+
+  test "discerns video" do
     with_mock Porcelain, [shell: fn(_) -> %Result{status: 0} end] do
-      assert Hatoba.Nani.source_type("https://www.youtube.com/watch?v=QbliRYZdJ4I") == :youtube_dl
-      assert Hatoba.Nani.source_type("https://youtu.be/FI1NvBQfH9A") == :youtube_dl
-      assert Hatoba.Nani.source_type("https://vimeo.com/263108265") == :youtube_dl
+      assert Hatoba.Nani.source_type("https://www.youtube.com/watch?v=QbliRYZdJ4I") == :video
+      assert Hatoba.Nani.source_type("https://youtu.be/FI1NvBQfH9A") == :video
+      assert Hatoba.Nani.source_type("https://vimeo.com/263108265") == :video
     end
     with_mock Porcelain, [shell: fn(_) -> %Result{status: 1} end] do
       assert Hatoba.Nani.source_type("https://www.google.com") == :unknown
@@ -30,12 +37,26 @@ defmodule Hatoba.NaniTest do
   end
 
   test "discerns booru" do
-    with_mock HTTPotion, [get: fn(_) -> content_response("application/json") end] do
-      assert Hatoba.Nani.source_type("https://danbooru.donmai.us/post/1234") == :booru
+    with_mock HTTPotion, [get: fn(url) ->
+                           if String.ends_with?(url, "post.json") do
+                             content_response("application/json; charset=utf-8")
+                           else
+                             response(404)
+                           end
+                         end] do
+      assert Hatoba.Nani.source_type("https://yande.re/posts/show/1234") == :booru
     end
-    with_mock HTTPotion, [get: fn(_) -> response(404) end] do
-      assert Hatoba.Nani.source_type("https://www.google.com") == :unknown
-      assert Hatoba.Nani.source_type("blah") == :unknown
+  end
+
+  test "discerns booru2" do
+    with_mock HTTPotion, [get: fn(url) ->
+                           if String.ends_with?(url, "posts.json") do
+                             content_response("application/json; charset=utf-8")
+                           else
+                             response(404)
+                           end
+                         end] do
+      assert Hatoba.Nani.source_type("https://danbooru.donmai.us/post/1234") == :booru2
     end
   end
 
@@ -52,26 +73,24 @@ defmodule Hatoba.NaniTest do
     end
   end
 
-  defp content_response(content_type) do
-    %Response {
-      status_code: 200,
-      headers: %Headers { hdrs: %{ "content-type" => content_type } }
-    }
-  end
-
   test "discerns magnet link" do
-    assert false
+    assert Hatoba.Nani.source_type("magnet:?xt=urn:bith:ASDF&dn=Blah") == :magnet
   end
 
   test "discerns image URL" do
-    assert false
-  end
-
-  test "discerns image data" do
-    assert false
+    with_mock HTTPotion, [get: fn(_) -> content_response("image/png") end] do
+      assert Hatoba.Nani.source_type("https://www.w3.org/People/mimasa/test/imgformat/img/w3c_home.gif") == :image
+    end
   end
 
   test "fails discerning malformed URLs" do
     assert Hatoba.Nani.source_type("youtu.be/watch?v=QbliRYZdJ4I") == :unknown
+    assert Hatoba.Nani.source_type("blah") == :unknown
+  end
+
+  test "fails discerning unsupported URLs" do
+    with_mock HTTPotion, [get: fn(_) -> response(200) end] do
+      assert Hatoba.Nani.source_type("https://www.google.com") == :unknown
+    end
   end
 end
