@@ -39,7 +39,7 @@ defmodule Hatoba.Download.StdoutTask do
         loop(impl, parent, proc)
       {pid, :result, %Result{status: status}} ->
         ^pid = proc.pid
-        finish(status)
+        Process.exit(self(), finish(status))
     end
   end
 

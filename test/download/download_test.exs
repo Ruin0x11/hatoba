@@ -1,7 +1,11 @@
 defmodule Hatoba.DownloadTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
-  setup do
+  import Mock
+
+  setup_with_mocks([
+    {Hatoba.Nani, [], [source_type: fn(_) -> :video end]},
+  ]) do
     start_supervised!({Hatoba.Download, [0, ""]})
     :ok
   end
@@ -15,7 +19,7 @@ defmodule Hatoba.DownloadTest do
     receive do
       {:DOWN, ^ref, _, _, _} -> :task_is_down
     after
-      1_000 -> raise "Proecss didn't exit"
+      1_000 -> raise "Process didn't exit"
     end
 
     Hatoba.Download.status(0) # bogus sync call to flush messages
@@ -31,7 +35,7 @@ defmodule Hatoba.DownloadTest do
     receive do
       {:DOWN, ^ref, _, _, _} -> :task_is_down
     after
-      1_000 -> raise "Proecss didn't exit"
+      1_000 -> raise "Process didn't exit"
     end
 
     Hatoba.Download.status(0) # bogus sync call to flush messages
@@ -47,7 +51,7 @@ defmodule Hatoba.DownloadTest do
     receive do
       {:DOWN, ^ref, _, _, _} -> :task_is_down
     after
-      1_000 -> raise "Proecss didn't exit"
+      1_000 -> raise "Process didn't exit"
     end
 
     Hatoba.Download.status(0) # bogus sync call to flush messages

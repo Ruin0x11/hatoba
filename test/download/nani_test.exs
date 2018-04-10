@@ -76,7 +76,7 @@ defmodule Hatoba.NaniTest do
   end
 
   test "discerns magnet link" do
-    assert Hatoba.Nani.source_type("magnet:?xt=urn:bith:ASDF&dn=Blah") == :magnet
+    assert Hatoba.Nani.source_type("magnet:?xt=urn:bith:ASDF&dn=Blah") == :torrent
   end
 
   test "discerns image URL" do
