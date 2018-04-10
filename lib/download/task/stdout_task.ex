@@ -5,11 +5,11 @@ defmodule Hatoba.Download.StdoutTask do
   use Task
   alias Porcelain.Result
 
-  def start_link([impl, parent, path, arg] = args) do
+  def start_link([_impl, _parent, _path, _arg] = args) do
     Task.start_link(__MODULE__, :run, args)
   end
 
-  def async([impl, parent, path, arg] = args) do
+  def async([_impl, _parent, _path, _arg] = args) do
     Task.async(__MODULE__, :run, args)
   end
 

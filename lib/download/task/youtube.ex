@@ -1,8 +1,6 @@
 defmodule Hatoba.Download.Youtube do
   @behaviour Hatoba.Download.StdoutTask
 
-  ## TODO: start_link as part of behaviour
-
   def process_data(data) do
     cond do
       [_, amount] = Regex.run(~r/.*\[download\] ([0-9]+)% of .*/, data) ->
