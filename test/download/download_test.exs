@@ -14,6 +14,14 @@ defmodule Hatoba.DownloadTest do
     assert Hatoba.Download.status(0) == {:failed, 0}
   end
 
+  test "continues running even if task fails" do
+    pid = Hatoba.Download.start(0)
+    Process.exit(pid, {:failed, "some error"})
+
+    Hatoba.Download.status(0) # bogus sync call to flush messages
+    assert Hatoba.Download.status(0) == {:failed, 0}
+  end
+
   test "continues running even if task exits" do
     pid = Hatoba.Download.start(0)
     Process.exit(pid, :blah)

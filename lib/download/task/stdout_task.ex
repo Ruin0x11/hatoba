@@ -1,9 +1,13 @@
 defmodule Hatoba.Download.StdoutTask do
-  @callback process_data(String.t) :: {:ok, tuple()} | nil
+  @callback process_stdout(String.t) :: {:ok, tuple()} | nil
   @callback cmd(String.t, any()) :: String.t # possibly refactor into multi-command pipeline with separate progress weights?
 
   use Task
   alias Porcelain.Result
+
+  def start([_impl, _parent, _path, _arg] = args) do
+    Task.start(__MODULE__, :run, args)
+  end
 
   def start_link([_impl, _parent, _path, _arg] = args) do
     Task.start_link(__MODULE__, :run, args)
@@ -28,7 +32,7 @@ defmodule Hatoba.Download.StdoutTask do
     receive do
       {pid, :data, :out, data} ->
         ^pid = proc.pid
-        case impl.process_data(data) do
+        case impl.process_stdout(data) do
           {:ok, dat} -> send parent, dat
           _ -> nil
         end

@@ -14,7 +14,7 @@ defmodule Hatoba.Download.YoutubeTest do
 
       send pid, {0, :data, :out, "[download] 34% of 10MB"}
 
-      assert_receive {:progress, 34}, 500
+      assert_receive {:progress, 34.0}, 500
     end
   end
 

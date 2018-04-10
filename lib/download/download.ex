@@ -69,15 +69,22 @@ defmodule Hatoba.Download do
 
   ## Traps
 
-  def handle_info({:DOWN, _ref, :process, pid, _}, %__MODULE__{:status => :finished} = state) do
+  def handle_info({:DOWN, _ref, :process, pid, {:failed, reason}}, state) do
     ^pid = state.pid
-    IO.puts "OK"
-    {:noreply, state}
+    IO.puts "Failed: #{reason}"
+    {:noreply, %__MODULE__{:status => :failed}}
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _}, state) do
     ^pid = state.pid
+    IO.puts "Failed silently"
     {:noreply, %__MODULE__{:status => :failed}}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, _}, %__MODULE__{:status => :finished} = state) do
+    ^pid = state.pid
+    IO.puts "OK"
+    {:noreply, state}
   end
 
   def handle_info({:EXIT, _from, reason}, _) do
