@@ -2,6 +2,7 @@ defmodule Hatoba.Download do
   use GenServer
 
   defstruct id: 0,
+    parent: nil,
     status: :not_started,
     url: "",
     pid: nil,
@@ -12,8 +13,8 @@ defmodule Hatoba.Download do
     output: [],
     dir: nil
 
-  def start_link([id, url]) do
-    GenServer.start_link(__MODULE__, [id, url], name: via_tuple(id))
+  def start_link([parent, id, url]) do
+    GenServer.start_link(__MODULE__, [parent, id, url], name: via_tuple(id))
   end
 
   defp via_tuple(id), do: {:via, Registry, {Registry.Hatoba, id}}
@@ -30,9 +31,9 @@ defmodule Hatoba.Download do
 
   ## GenServer
 
-  def init([id, url]) do
+  def init([parent, id, url]) do
     outdir = Base.encode16(:crypto.hash(:sha256, "#{id}#{url}"))
-    {:ok, %__MODULE__{url: url, dir: outdir}}
+    {:ok, %__MODULE__{parent: parent, url: url, dir: outdir}}
   end
 
   def handle_call(:status, _from, state) do
@@ -98,6 +99,7 @@ defmodule Hatoba.Download do
     ^pid = state.pid
     ^ref = state.ref
     IO.puts "OK: #{output}"
+    send state.parent, {:download_success, state.id}
     {:noreply, %__MODULE__{state | :status => :finished, :output => [output]}}
   end
 
@@ -107,6 +109,7 @@ defmodule Hatoba.Download do
     ^pid = state.pid
     ^ref = state.ref
     IO.puts "OK with no given output"
+    send state.parent, {:download_success, state.id}
     {:noreply, %__MODULE__{state | :status => :finished}}
   end
 
@@ -115,6 +118,7 @@ defmodule Hatoba.Download do
     ^pid = state.pid
     ^ref = state.ref
     IO.puts "Failed: #{reason}"
+    send state.parent, {:download_failure, state.id}
     {:noreply, %__MODULE__{state | :status => :failed}}
   end
 
@@ -123,7 +127,8 @@ defmodule Hatoba.Download do
     ^pid = state.pid
     ^ref = state.ref
     IO.puts "Exited!"
-    {:noreply, %__MODULE__{state | :status => :finished}}
+    send state.parent, {:download_failure, state.id}
+    {:noreply, %__MODULE__{state | :status => :failed}}
   end
 
   ## Exited without some other reason
@@ -131,12 +136,14 @@ defmodule Hatoba.Download do
     ^pid = state.pid
     ^ref = state.ref
     IO.puts "Failed with some reason #{status}"
+    send state.parent, {:download_failure, state.id}
     {:noreply, %__MODULE__{state | :status => :failed}}
   end
 
   ## Killed
   def handle_info({:EXIT, _from, reason}, state) do
     IO.puts "Failed: #{reason}"
+    send state.parent, {:download_failure, state.id}
     {:noreply, %__MODULE__{state | :status => :killed}}
   end
 

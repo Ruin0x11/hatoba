@@ -28,6 +28,10 @@ defmodule Hatoba.Download.Booru do
     url = post
     |> Map.get(:file_url)
 
+    if url == nil do
+        Process.exit(self(), {:failure, "Network error."})
+    end
+
     filename = url
     |> Path.split
     |> List.last

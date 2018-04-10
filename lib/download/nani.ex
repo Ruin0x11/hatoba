@@ -1,5 +1,8 @@
 defmodule Hatoba.Nani do
 
+  ## TODO: cache known domains that procure types of content, like booru/youtube
+  ## will reduce roundtrip time for content detection
+
   def source_type(data) do
     if valid_uri(data) do
       # ordering of this cond is important.

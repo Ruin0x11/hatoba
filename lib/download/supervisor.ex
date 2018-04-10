@@ -7,7 +7,9 @@ defmodule Hatoba.Download.Supervisor do
 
   def init(:ok) do
     children = [
-      {Task.Supervisor, name: Hatoba.TaskSupervisor}
+      {Task.Supervisor, name: Hatoba.TaskSupervisor},
+      {DynamicSupervisor, name: Hatoba.MonitorSupervisor, strategy: :one_for_one},
+      {Hatoba.Queue, name: Hatoba.Queue}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
