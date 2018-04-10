@@ -3,6 +3,10 @@ defmodule Hatoba.Download.Task do
 
   @callback run(pid(), String.t, any()) :: :success | {:failure, String.t}
 
+  def start([_impl, _parent, _path, _arg] = args) do
+    Task.start(__MODULE__, :run, args)
+  end
+
   def start_link([_impl, _parent, _path, _arg] = args) do
     Task.start_link(__MODULE__, :run, args)
   end

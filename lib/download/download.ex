@@ -5,11 +5,15 @@ defmodule Hatoba.Download do
     status: :not_started,
     url: "",
     pid: nil,
-    progress: 0,
-    ref: nil
+    ref: nil,
+    filecount: 0,
+    progress: %{},
+    metadata: %{},
+    output: [],
+    dir: nil
 
   def start_link([id, url]) do
-    GenServer.start_link(__MODULE__, [url], name: via_tuple(id))
+    GenServer.start_link(__MODULE__, [id, url], name: via_tuple(id))
   end
 
   defp via_tuple(id), do: {:via, Registry, {Registry.Hatoba, id}}
@@ -22,31 +26,21 @@ defmodule Hatoba.Download do
     GenServer.call(via_tuple(id), :status)
   end
 
+  ## Output is sha256 of input
 
   ## GenServer
 
-  def init([url]) do
-    {:ok, %__MODULE__{url: url}}
+  def init([id, url]) do
+    outdir = Base.encode16(:crypto.hash(:sha256, "#{id}#{url}"))
+    {:ok, %__MODULE__{url: url, dir: outdir}}
   end
 
-  def handle_call(:status, _from, %__MODULE__{:status => status, :progress => progress} = state) do
-    {:reply, {status, progress}, state}
+  def handle_call(:status, _from, state) do
+    {:reply, state, state}
   end
 
   def handle_call(:start, _from, %__MODULE__{:status => :not_started} = state) do
-    {task_type, task_subtype} = state.url
-    |> Hatoba.Nani.source_type
-    |> Hatoba.Download.Task.from_source_type
-
-    if task_type != nil && task_subtype != nil do
-      {:ok, pid} = Task.Supervisor.start_child(Hatoba.TaskSupervisor, fn ->
-        task_type.run(task_subtype, self(), "/tmp", state.url)
-      end)
-      ref = Process.monitor(pid)
-      {:reply, pid, %__MODULE__{:status => :started, :pid => pid, :ref => ref}}
-    else
-      {:reply, nil, %__MODULE__{:status => :unknown_type}}
-    end
+    run_task(state)
   end
 
   def handle_call(:start, _from, %__MODULE__{:status => :running} = state) do
@@ -54,54 +48,101 @@ defmodule Hatoba.Download do
   end
 
   def handle_call(:start, _from, %__MODULE__{:status => :finished} = state) do
-    {:reply, nil, state}
+    ## TODO: clean up files here
+    run_task(%__MODULE__{state | status: :not_started})
+  end
+
+  defp run_task(state) do
+    {task_type, task_subtype} = state.url
+    |> Hatoba.Nani.source_type
+    |> Hatoba.Download.Task.from_source_type
+
+    outdir = Path.join("/tmp", state.dir)
+    :ok = File.mkdir_p(outdir)
+
+    # make sure this is run outside the task
+    parent = self()
+
+    if task_type != nil && task_subtype != nil do
+      {:ok, pid} = Task.Supervisor.start_child(Hatoba.TaskSupervisor, fn ->
+        task_type.run(task_subtype, parent, outdir, state.url)
+      end)
+      ref = Process.monitor(pid)
+      {:reply, pid, %__MODULE__{state | :status => :started, :pid => pid, :ref => ref}}
+    else
+      {:reply, nil, %__MODULE__{state | :status => :unknown_type}}
+    end
   end
 
 
   ## Status from task
 
-  def handle_info({:progress, progress}, state) do
-    {:noreply, %__MODULE__{ state | :progress => progress}}
+  def handle_info({:progress, filename, progress}, state) do
+    IO.puts "prog: #{progress}"
+    {:noreply, %__MODULE__{state | :progress => Map.put(state.progress, filename, progress)}}
   end
 
-  def handle_info({:success}, state) do
-    {:noreply, %__MODULE__{ state | :status => :finished, :progress => 100}}
+  def handle_info({:metadata, filename, metadata}, state) do
+    {:noreply, %__MODULE__{state | :metadata => Map.put(state.metadata, filename, metadata)}}
   end
 
-  def handle_info({:failure, status}, _) do
-    IO.inspect "failure with #{status}"
-    {:noreply, %__MODULE__{:status => :failure}}
+  def handle_info({:filecount, filecount}, state) do
+    {:noreply, %__MODULE__{state | :filecount => filecount}}
   end
 
 
   ## Traps
 
-  def handle_info({:DOWN, _ref, :process, pid, {:failed, reason}}, state) do
+  ## Succeeded with known output files
+  def handle_info({:DOWN, ref, :process, pid, {:success, [output]}}, state) do
     ^pid = state.pid
+    ^ref = state.ref
+    IO.puts "OK: #{output}"
+    {:noreply, %__MODULE__{state | :status => :finished, :output => [output]}}
+  end
+
+  ## Succeeded with no output file given
+  ## Assume all files in the directory are the output
+  def handle_info({:DOWN, ref, :process, pid, :success}, state) do
+    ^pid = state.pid
+    ^ref = state.ref
+    IO.puts "OK with no given output"
+    {:noreply, %__MODULE__{state | :status => :finished}}
+  end
+
+  ## Failed with some reason
+  def handle_info({:DOWN, ref, :process, pid, {:failed, reason}}, state) do
+    ^pid = state.pid
+    ^ref = state.ref
     IO.puts "Failed: #{reason}"
-    {:noreply, %__MODULE__{:status => :failed}}
+    {:noreply, %__MODULE__{state | :status => :failed}}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, :success}, state) do
+  ## Exited with :normal
+  def handle_info({:DOWN, ref, :process, pid, :normal}, state) do
     ^pid = state.pid
-    IO.puts "OK"
-    {:noreply, %__MODULE__{:status => :finished}}
+    ^ref = state.ref
+    IO.puts "Exited!"
+    {:noreply, %__MODULE__{state | :status => :finished}}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, _}, %__MODULE__{:status => :finished} = state) do
+  ## Exited without some other reason
+  def handle_info({:DOWN, ref, :process, pid, status}, state) do
     ^pid = state.pid
-    IO.puts "OK"
-    {:noreply, state}
-  end
-
-  def handle_info({:DOWN, _ref, :process, pid, status}, state) do
-    ^pid = state.pid
+    ^ref = state.ref
     IO.puts "Failed with some reason #{status}"
-    {:noreply, %__MODULE__{:status => :failed}}
+    {:noreply, %__MODULE__{state | :status => :failed}}
   end
 
-  def handle_info({:EXIT, _from, reason}, _) do
+  ## Killed
+  def handle_info({:EXIT, _from, reason}, state) do
     IO.puts "Failed: #{reason}"
-    {:noreply, %__MODULE__{:status => :killed}}
+    {:noreply, %__MODULE__{state | :status => :killed}}
+  end
+
+  ## Unknown
+  def handle_info(info, state) do
+    IO.puts "Unknown info: #{info}"
+    {:noreply, state}
   end
 end

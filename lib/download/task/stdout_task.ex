@@ -1,5 +1,5 @@
 defmodule Hatoba.Download.StdoutTask do
-  @callback process_stdout(String.t) :: {:ok, tuple()} | nil
+  @callback process_stdout(String.t, map(), pid()) :: map()
   @callback cmd(String.t, any()) :: String.t # possibly refactor into multi-command pipeline with separate progress weights?
 
   use Task
@@ -20,7 +20,7 @@ defmodule Hatoba.Download.StdoutTask do
 
   def run(impl, parent, path, arg) do
     proc = proc(impl, path, arg)
-    loop(impl, parent, proc)
+    loop(impl, parent, proc, %{file: ""})
   end
 
   def proc(impl, path, arg) do
@@ -28,15 +28,12 @@ defmodule Hatoba.Download.StdoutTask do
       in: :receive, out: {:send, self()})
   end
 
-  def loop(impl, parent, proc) do
+  def loop(impl, parent, proc, child_state) do
     receive do
       {pid, :data, :out, data} ->
         ^pid = proc.pid
-        case impl.process_stdout(data) do
-          {:ok, dat} -> send parent, dat
-          _ -> nil
-        end
-        loop(impl, parent, proc)
+        new_state = impl.process_stdout(data, child_state, parent)
+        loop(impl, parent, proc, new_state)
       {pid, :result, %Result{status: status}} ->
         ^pid = proc.pid
         Process.exit(self(), finish(status))

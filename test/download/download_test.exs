@@ -23,7 +23,7 @@ defmodule Hatoba.DownloadTest do
     end
 
     Hatoba.Download.status(0) # bogus sync call to flush messages
-    assert Hatoba.Download.status(0) == {:failed, 0}
+    assert Hatoba.Download.status(0).status == :failed
   end
 
   test "continues running even if task fails" do
@@ -39,7 +39,7 @@ defmodule Hatoba.DownloadTest do
     end
 
     Hatoba.Download.status(0) # bogus sync call to flush messages
-    assert Hatoba.Download.status(0) == {:failed, 0}
+    assert Hatoba.Download.status(0).status == :failed
   end
 
   test "continues running even if task exits" do
@@ -55,6 +55,6 @@ defmodule Hatoba.DownloadTest do
     end
 
     Hatoba.Download.status(0) # bogus sync call to flush messages
-    assert Hatoba.Download.status(0) == {:failed, 0}
+    assert Hatoba.Download.status(0).status == :failed
   end
 end

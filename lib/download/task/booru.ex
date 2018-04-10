@@ -15,7 +15,7 @@ defmodule Hatoba.Download.Booru do
     if id != nil do
       download(parent, outpath, arg, base_uri, id)
     else
-      send parent, {:failure}
+      send parent, {:failure, "No such id"}
     end
   end
 
@@ -25,34 +25,43 @@ defmodule Hatoba.Download.Booru do
     |> Map.from_struct
     |> metadata(base_uri, url)
 
-    send parent, {:metadata, metadata}
-
-    post
+    url = post
     |> Map.get(:file_url)
-    |> HTTPotion.get(stream_to: self(), timeout: 5_000_000)
 
-    receive_data(parent, outpath, total_bytes: :unknown, data: "")
+    filename = url
+    |> Path.split
+    |> List.last
+
+    send parent, {:filecount, 1}
+    send parent, {:metadata, filename, metadata}
+
+    url |> HTTPotion.get(stream_to: self(), timeout: 5_000_000)
+
+    receive_data(parent, filename, outpath, total_bytes: :unknown, data: "")
   end
 
-  defp receive_data(parent, outpath, total_bytes: total_bytes, data: data) do
+  defp receive_data(parent, filename, outpath, total_bytes: total_bytes, data: data) do
     receive do
       %HTTPotion.AsyncHeaders{headers: h} ->
         {total_bytes, _} = h[:"Content-Length"] |> Integer.parse
-        receive_data(parent, outpath, total_bytes: total_bytes, data: data)
+        receive_data(parent, filename, outpath, total_bytes: total_bytes, data: data)
 
       %HTTPotion.AsyncChunk{chunk: new_data} ->
         accumulated_data = data <> new_data
         accumulated_bytes = byte_size(accumulated_data)
         percent = accumulated_bytes / total_bytes * 100 |> Float.round(2)
-        send parent, {:progress, percent}
-        receive_data(parent, outpath, total_bytes: total_bytes, data: accumulated_data)
+        send parent, {:progress, filename, percent}
+        receive_data(parent, filename, outpath, total_bytes: total_bytes, data: accumulated_data)
 
       %HTTPotion.AsyncEnd{} ->
-        File.write!(outpath, data)
-        :success
+        [outpath, filename]
+        |> Path.join
+        |> File.write!(data)
+
+        Process.exit(self(), {:success, [filename]})
 
       %HTTPotion.AsyncTimeout{} ->
-        {:failure, "Timed out."}
+        Process.exit(self(), {:failure, "Timed out."})
 
     end
   end
@@ -79,7 +88,7 @@ defmodule Hatoba.Download.Booru do
   defp all_tag_jsons(base_uri, tags) do
     tags
     |> String.split(" ")
-    |> Enum.map(fn(t) -> tag_json(base_uri, t) end)
+    |> Enum.map(fn(t) -> tag_json(base_uri, t) |> Map.from_struct end)
   end
 
   defp tag_json(base_uri, tag) do

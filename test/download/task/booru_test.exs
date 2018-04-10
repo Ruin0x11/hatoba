@@ -41,7 +41,7 @@ defmodule Hatoba.Download.BooruTest do
     send pid, %HTTPotion.AsyncHeaders{headers: ["Content-Length": "100"]}
     send pid, %HTTPotion.AsyncChunk{chunk: String.duplicate("a", 50)}
 
-    assert_receive {:progress, 50.0}, 500
+    assert_receive {:progress, "the_file", 50.0}, 500
   end
 
   defp metadata, do: '[{"id": 0, "tags": "my_tag my_other_tag", "source": "my_source", "md5": "", "file_url": "the_file", "has_children": false, "parent_id": 0}]'
@@ -49,18 +49,20 @@ defmodule Hatoba.Download.BooruTest do
   test "provides metadata" do
     %Task{} = run("https://yande.re/post/show/12345")
 
-    assert_receive {:metadata, %{md5: "",
-                                 original: "https://yande.re/post/show/12345",
-                                 source: "my_source",
-                                 tags: [%BooruTag{ambiguous: false, name: "", type: ""},
-                                        %BooruTag{ambiguous: false, name: "", type: ""}]}}, 500
+    assert_receive {:metadata, "the_file",
+                    %{md5: "",
+                      original: "https://yande.re/post/show/12345",
+                      source: "my_source",
+                      tags: [%{ambiguous: false, name: "", type: ""},
+                             %{ambiguous: false, name: "", type: ""}]}}, 500
   end
 
   test "exits on timeout" do
-    task = %Task{pid: pid} = run("https://yande.re/post/show/12345")
+    {:ok, pid} = Hatoba.Download.Task.start([Hatoba.Download.Booru, self(), "/tmp", "https://yande.re/post/show/12345"])
+    ref = Process.monitor(pid)
 
     send pid, %HTTPotion.AsyncTimeout{}
 
-    assert Task.await(task) == {:failure, "Timed out."}
+    assert_receive {:DOWN, ^ref, :process, ^pid, {:failure, "Timed out."}}, 500
   end
 end
