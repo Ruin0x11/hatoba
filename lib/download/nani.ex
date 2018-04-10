@@ -1,5 +1,4 @@
 defmodule Hatoba.Nani do
-  alias Porcelain.Result
 
   def source_type(data) do
     if valid_uri(data) do
@@ -29,22 +28,25 @@ defmodule Hatoba.Nani do
     Porcelain.shell("youtube-dl -g --no-warnings #{uri}").status == 0
   end
 
-  defp is_booru2(uri), do: has_posts_api(uri, "/posts.json")
-  defp is_booru(uri), do: has_posts_api(uri, "/post.json")
+  defp is_booru2(uri), do: has_posts_api(uri, "/posts.json") && has_post_id(uri)
+  defp is_booru(uri), do: has_posts_api(uri, "/post.json") && has_post_id(uri)
 
   defp has_posts_api(uri, endpoint) do
     data = uri
     |> base_uri
     |> URI.merge(endpoint)
     |> URI.to_string
-    |> HTTPotion.get
+    |> HTTPotion.head
     |> Map.from_struct
-    Map.get(data, :status_code) == 200 && String.contains?(content_type(data), "application/json")
+    Map.get(data, :status_code) == 200
+      && String.contains?(content_type(data), "application/json")
   end
+
+  defp has_post_id(uri), do: Regex.match?(~r/[0-9]+$/, uri)
 
   defp is_torrent(uri) do
     uri
-    |> HTTPotion.get
+    |> HTTPotion.head
     |> Map.from_struct
     |> content_type == "application/x-bittorrent"
   end
@@ -57,7 +59,7 @@ defmodule Hatoba.Nani do
 
   defp is_image_uri(uri) do
     content_type = uri
-    |> HTTPotion.get
+    |> HTTPotion.head
     |> content_type
     Enum.member?(["image/png", "image/jpeg", "image/gif"], content_type)
   end
