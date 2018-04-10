@@ -23,9 +23,14 @@ defmodule Hatoba.Nani do
   end
 
   defp is_video(uri) do
-    # bizarrely, this detects urls with extensions like .torrent as "direct video urls".
-    Porcelain.shell("youtube-dl -g --no-warnings #{uri}").status == 0
+    auth = uri
+    |> URI.parse
+    |> Map.get(:authority)
+    Enum.member?(["youtu.be", "www.youtube.com"], auth) || ytdl_responds(uri)
   end
+
+  # bizarrely, this detects urls with extensions like .torrent as "direct video urls".
+  defp ytdl_responds(uri), do: Porcelain.shell("youtube-dl -g --no-warnings #{uri}").status == 0
 
   defp is_booru2(uri), do: has_posts_api(uri, "/posts.json") && has_post_id(uri)
   defp is_booru(uri), do: has_posts_api(uri, "/post.json") && has_post_id(uri)

@@ -8,12 +8,8 @@ defmodule Hatoba.Download do
     progress: 0,
     ref: nil
 
-  # TODO: can only handle one thing at a time, but registry is supposed to handle multiple
-  # so there should only ever be one per ID
-  # registry should live one level higher?
-
   def start_link([id, url]) do
-    GenServer.start_link(__MODULE__, [id, url], name: via_tuple(id))
+    GenServer.start_link(__MODULE__, [url], name: via_tuple(id))
   end
 
   defp via_tuple(id), do: {:via, Registry, {Registry.Hatoba, id}}
@@ -29,8 +25,8 @@ defmodule Hatoba.Download do
 
   ## GenServer
 
-  def init([id, url]) do
-    {:ok, %__MODULE__{ id: id, url: url}}
+  def init([url]) do
+    {:ok, %__MODULE__{url: url}}
   end
 
   def handle_call(:status, _from, %__MODULE__{:status => status, :progress => progress} = state) do
