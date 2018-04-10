@@ -5,8 +5,9 @@ defmodule Hatoba.Nani do
       # ordering of this cond is important.
       # it should be ordered from most specific to most general.
       cond do
+        is_magnet_link(data) -> :torrent
         is_image_uri(data) -> :image
-        is_magnet_link(data) || is_torrent(data) -> :torrent
+        is_torrent(data) -> :torrent
         is_booru(data) -> :booru
         is_booru2(data) -> :booru2
         is_video(data) -> :video

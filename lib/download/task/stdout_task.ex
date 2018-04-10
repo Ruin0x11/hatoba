@@ -32,6 +32,7 @@ defmodule Hatoba.Download.StdoutTask do
     receive do
       {pid, :data, :out, data} ->
         ^pid = proc.pid
+        IO.inspect data
         new_state = impl.process_stdout(data, child_state, parent)
         loop(impl, parent, proc, new_state)
       {pid, :result, %Result{status: status}} ->
