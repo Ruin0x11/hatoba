@@ -33,7 +33,7 @@ defmodule Hatoba.Download do
 
   def init([parent, id, url]) do
     outdir = Base.encode16(:crypto.hash(:sha256, "#{id}#{url}"))
-    {:ok, %__MODULE__{parent: parent, url: url, dir: outdir}}
+    {:ok, %__MODULE__{id: id, parent: parent, url: url, dir: outdir}}
   end
 
   def handle_call(:status, _from, state) do
@@ -135,7 +135,8 @@ defmodule Hatoba.Download do
   def handle_info({:DOWN, ref, :process, pid, status}, state) do
     ^pid = state.pid
     ^ref = state.ref
-    IO.puts "Failed with some reason #{status}"
+    IO.puts "Failed with some reason."
+    IO.inspect status
     send state.parent, {:download_failure, state.id}
     {:noreply, %__MODULE__{state | :status => :failed}}
   end
