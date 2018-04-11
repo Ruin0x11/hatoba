@@ -24,8 +24,15 @@ defmodule Hatoba.Upload.Booru do
     resp = dl
     |> Hatoba.Download.files
     |> Enum.map(&form(&1, Map.get(dl, :metadata)))
-    |> Enum.each(&HTTPoison.post(url, form(&1, Map.get(dl, :metadata))))
+    |> Enum.each(&HTTPoison.post(url, form(&1, Map.get(dl, :metadata)), %{}, options))
     IO.inspect resp
+  end
+
+  defp options do
+    [hackney: [basic_auth: {
+                  Application.fetch_env!(:hatoba, :booru_user),
+                  Application.fetch_env!(:hatoba, :booru_api_key)
+               }]]
   end
 
   defp form(filepath, metadata) do
