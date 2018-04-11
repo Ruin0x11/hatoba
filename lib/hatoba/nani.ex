@@ -92,7 +92,14 @@ defmodule Hatoba.Nani do
   defp content_type(response) do
     response
     |> Map.get(:headers)
-    |> Keyword.get(:"Content-Type")
+    |> get_header("Content-Type")
+  end
+
+  def get_header(headers, key) do
+    headers
+    |> Enum.filter(fn({k, _}) -> k == key end)
+    |> hd
+    |> elem(1)
   end
 
   defp base_uri(uri) do

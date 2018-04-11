@@ -6,7 +6,7 @@ defmodule Hatoba.DownloadTest do
   setup_with_mocks([
     {Hatoba.Nani, [], [source_type: fn(_) -> :video end]},
   ]) do
-    start_supervised!({Hatoba.Download, [0, ""]})
+    start_supervised!({Hatoba.Download, [self(), 0, ""]})
     :ok
   end
 

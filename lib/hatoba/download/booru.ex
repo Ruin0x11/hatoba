@@ -29,7 +29,7 @@ defmodule Hatoba.Download.Booru do
     |> Map.get(:file_url)
 
     if url == nil do
-        Process.exit(self(), {:failure, "Bad URL or network error."})
+      Process.exit(self(), {:failure, "Bad URL or network error."})
     end
 
     filename = url
@@ -40,7 +40,7 @@ defmodule Hatoba.Download.Booru do
     send parent, {:filecount, 1}
     send parent, {:metadata, filename, metadata}
 
-    url |> HTTPoison.get(stream_to: self(), timeout: 5_000_000)
+    HTTPoison.get!(url, %{}, stream_to: self(), timeout: 5_000_000)
 
     receive_data(parent, filename, outpath, total_bytes: :unknown, data: "")
   end
@@ -48,7 +48,7 @@ defmodule Hatoba.Download.Booru do
   defp receive_data(parent, filename, outpath, total_bytes: total_bytes, data: data) do
     receive do
       %HTTPoison.AsyncHeaders{headers: h} ->
-        {total_bytes, _} = h[:"Content-Length"] |> Integer.parse
+        {total_bytes, _} = h |> Hatoba.Nani.get_header("Content-Length") |> Integer.parse
         receive_data(parent, filename, outpath, total_bytes: total_bytes, data: data)
 
       %HTTPoison.AsyncChunk{chunk: new_data} ->
@@ -107,7 +107,7 @@ defmodule Hatoba.Download.Booru do
     base_uri
     |> URI.merge(endpoint)
     |> URI.to_string
-    |> HTTPoison.get
+    |> HTTPoison.get!
     |> Map.get(:body)
   end
 

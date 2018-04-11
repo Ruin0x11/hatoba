@@ -13,6 +13,7 @@ defmodule Hatoba.Download.TorrentTest do
       {:ok, pid} = run("https://nyaa.si/download/1.torrent")
 
       send pid, {0, :data, :out, "===\n[#856840 30MiB/1.0GiB(2%) CN:6 SD:2 DL:2.1MiB UL:12KiB(112KiB) ETA:7m36s]\n]\nFILE: /tmp/asd.mp4\n---"}
+      send pid, {0, :data, :out, "===\n[#856840 30MiB/1.0GiB(2%) CN:6 SD:2 DL:2.1MiB UL:12KiB(112KiB) ETA:7m36s]\n]\nFILE: /tmp/asd.mp4\n---"}
 
       assert_receive {:progress, "/tmp/asd.mp4", 2.0}, 500
     end

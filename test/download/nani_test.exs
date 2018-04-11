@@ -18,7 +18,7 @@ defmodule Hatoba.NaniTest do
     {:ok,
      %Response {
        status_code: code,
-       headers: ["Content-Type": content_type]
+       headers: [{"Content-Type", content_type}]
      }
     }
   end

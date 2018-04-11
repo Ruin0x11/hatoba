@@ -5,7 +5,7 @@ defmodule Hatoba.Download.BooruTest do
   alias HTTPoison.Response
 
   setup_with_mocks([
-    {HTTPoison, [], [get: fn(url) ->
+    {HTTPoison, [], [get!: fn(url) ->
                       cond do
                         String.contains?(url, "post.json") -> response(200, metadata())
                         String.contains?(url, "tag.json") -> response(200, '[{"name": "", "type": "", "ambiguous": false}]')
@@ -13,7 +13,7 @@ defmodule Hatoba.Download.BooruTest do
                         true -> response(404)
                       end
                     end]},
-    {HTTPoison, [], [get: fn(_, _) ->
+    {HTTPoison, [], [get!: fn(_, _, _) ->
                       cond do
                         true -> response(404)
                       end
@@ -37,7 +37,7 @@ defmodule Hatoba.Download.BooruTest do
   test "provides progress" do
     %Task{pid: pid} = run("https://yande.re/post/show/12345")
 
-    send pid, %HTTPoison.AsyncHeaders{headers: ["Content-Length": "100"]}
+    send pid, %HTTPoison.AsyncHeaders{headers: [{"Content-Length", "100"}]}
     send pid, %HTTPoison.AsyncChunk{chunk: String.duplicate("a", 50)}
 
     assert_receive {:progress, "the_file", 50.0}, 500
