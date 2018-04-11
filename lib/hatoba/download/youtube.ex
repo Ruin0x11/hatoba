@@ -5,10 +5,17 @@ defmodule Hatoba.Download.Youtube do
     IO.inspect data
     progress = Regex.run(~r/\[download\]\s+([0-9.]+)%/, data)
     dest = Regex.run(~r/\[download\] Destination: (.*)/, data)
+    count = Regex.run(~r/\[youtube:playlist\] playlist .*: Downloading ([0-9]+) videos$/, data)
 
     new_state = case dest do
       [_, path] -> %{state | file: path}
-      _ -> state
+ _ -> state
+    end
+
+    case count do
+      [_, amount] -> with {num, _} <- Integer.parse(amount),
+                      do: send parent, {:filecount, num}
+      _ -> nil
     end
 
     case progress do
@@ -22,3 +29,4 @@ defmodule Hatoba.Download.Youtube do
 
   def cmd(path, url), do: "youtube-dl -o \"#{path}/%(title)s-%(id)s.%(ext)s\" #{url}"
 end
+
