@@ -3,7 +3,8 @@ defmodule Hatoba do
 
   def start(_type, _args) do
     children = [
-      {Registry, keys: :unique, name: Registry.Hatoba},
+      {Registry, keys: :unique, name: Registry.Hatoba.Download},
+      {Registry, keys: :unique, name: Registry.Hatoba.Upload},
       {Hatoba.Download.Supervisor, []}
     ]
 

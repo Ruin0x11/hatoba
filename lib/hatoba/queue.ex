@@ -5,8 +5,10 @@ defmodule Hatoba.Queue do
     finished: %MapSet{},
     uploading: %MapSet{},
     failed: %MapSet{},
+    uploads_failed: %MapSet{},
     queued: :queue.from_list([]),
-    next_id: 0
+    next_id: 0,
+    next_upload_id: 0
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, :ok, name: :download_queue)
@@ -45,52 +47,95 @@ defmodule Hatoba.Queue do
     {:reply, :ok, %__MODULE__{next_id: state.next_id}}
   end
 
-  def handle_call({:enqueue, arg}, _from, %__MODULE__{downloading: downloading, queued: queued, next_id: id} = state) do
-    {:ok, _pid} = DynamicSupervisor.start_child(Hatoba.MonitorSupervisor, {Hatoba.Download, [self(), id, arg]})
+  def handle_call({:enqueue, arg}, _from, %__MODULE__{} = state) do
+    do_enqueue(arg, state)
+  end
+
+  def handle_call({:enqueue, arg, dest}, _from, %__MODULE__{} = state) do
+    do_enqueue(arg, state, dest)
+  end
+
+  defp do_enqueue(arg, state, dest \\ %Hatoba.UploadType{}) do
+    %__MODULE__{downloading: downloading, queued: queued, next_id: next_id} = state
 
     IO.inspect "queue #{arg}"
 
     {new_dl, new_q} = if Kernel.map_size(downloading) >= 10 do
-      {downloading, :queue.in({id, 0}, queued)}
+      {downloading, :queue.in({next_id, {arg, dest}}, queued)}
     else
-      {run_job(downloading, id), queued}
+      {run_job(downloading, next_id, arg, dest), queued}
     end
 
-    {:reply, id, %__MODULE__{ state |
+    {:reply, next_id, %__MODULE__{ state |
                               downloading: new_dl,
                               queued: new_q,
-                              next_id: id + 1 }}
-  end
-
-  def move_and_dequeue(state, key, id) do
-    {new_dl, new_q} =
-      case :queue.out(state.queued) do
-        {:empty, q} ->
-          {MapSet.delete(state.downloading, id), q}
-        {{:value, {next_id, _}}, q} ->
-          {run_job(state.downloading, next_id) |> MapSet.delete(id), q}
-      end
-
-    new_map = Map.get(state, key) |> MapSet.put(id)
-    new_state = Map.put(state, key, new_map)
-    {:noreply, %__MODULE__{ new_state |
-                            :downloading =>  new_dl,
-                            :queued => new_q
-                          }}
+                              next_id: next_id + 1 }}
   end
 
   def handle_info({:download_success, id}, state) do
     IO.inspect "done #{id}"
-    move_and_dequeue(state, :finished, id)
+    {new_dl, new_q} =
+      pop_next(state.queued, state.downloading, id)
+
+    dl = Hatoba.Download.status(id)
+    {:noreply, %__MODULE__{ state |
+                            :downloading =>  new_dl,
+                            :queued => new_q,
+                            :uploading => start_upload(state.uploading, state.next_upload_id, dl),
+                            :next_upload_id => state.next_upload_id + 1
+                          }}
   end
 
   def handle_info({:download_failure, id}, state) do
     IO.inspect "fail #{id}"
-    move_and_dequeue(state, :failed, id)
+    {new_dl, new_q} =
+      pop_next(state.queued, state.downloading, id)
+
+    {:noreply, %__MODULE__{ state |
+                            :downloading =>  new_dl,
+                            :queued => new_q,
+                            :failed => MapSet.put(state.failed, id)
+                          }}
   end
 
-  defp run_job(downloading, id) do
+  def handle_info({:upload_success, id}, state) do
+    IO.inspect "uldone #{id}"
+    {:noreply, %__MODULE__{ state |
+                            :uploading => MapSet.delete(state.uploading, id),
+                            :finished => MapSet.put(state.finished, id)
+                          }}
+  end
+
+  def handle_info({:upload_failure, id}, state) do
+    IO.inspect "ulfail #{id}"
+    {:noreply, %__MODULE__{ state |
+                            :uploading => MapSet.delete(state.uploading, id),
+                            :uploads_failed => MapSet.put(state.uploads_failed, id)
+                          }}
+  end
+
+  defp pop_next(queued, downloading, id) do
+    case :queue.out(queued) do
+      {:empty, q} ->
+        {MapSet.delete(downloading, id), q}
+      {{:value, {next_id, {arg, dest}}}, q} ->
+        {MapSet.delete(downloading, id) |> run_job(next_id, arg, dest), q}
+    end
+  end
+
+  defp run_job(downloading, id, arg, dest) do
+    {:ok, _pid} = DynamicSupervisor.start_child(Hatoba.MonitorSupervisor, {Hatoba.Download, [self(), id, arg, dest]})
+
+    IO.puts "Download: #{id}"
     Hatoba.Download.start(id)
     MapSet.put(downloading, id)
+  end
+
+  defp start_upload(uploading, id, dl) do
+    {:ok, _pid} = DynamicSupervisor.start_child(Hatoba.MonitorSupervisor, {Hatoba.Upload, [self(), id, dl]})
+
+    IO.puts "Upload: #{id}"
+    Hatoba.Upload.start(id)
+    MapSet.put(uploading, id)
   end
 end

@@ -1,5 +1,5 @@
 defmodule Hatoba.Upload.Task do
-  use Task
+  use Task, restart: :temporary
 
   @callback run(pid(), Hatoba.Download.t, any()) :: :success | {:failure, String.t}
   @callback validate(Hatoba.Download.t, any()) :: :ok | {:error, any()}
@@ -19,7 +19,7 @@ defmodule Hatoba.Upload.Task do
   def validate(impl, dl, arg) do
     if Hatoba.Download.valid?(dl) do
       case dl.status do
-        :success -> impl.validate(dl, arg)
+        :finished -> impl.validate(dl, arg)
         status -> {:error, "Can't upload unsuccessful download. Status was: #{status}"}
       end
     else
@@ -27,18 +27,32 @@ defmodule Hatoba.Upload.Task do
     end
   end
 
-  def run(impl, parent, dl, arg) do
-    case validate(impl, dl, arg) do
-      :ok -> impl.run(parent, dl)
+  def run(parent, dl) do
+    ul = dl
+    |> Map.from_struct
+    |> Map.get(:dest)
+    |> Map.from_struct
+
+    impl = ul
+    |> Map.get(:type)
+    |> from_upload_type
+
+    arg = ul
+    |> Map.get(:arg)
+
+    ret = case validate(impl, dl, arg) do
+      :ok -> impl.run(parent, dl, arg)
       {:error, reason} -> {:failure, reason}
     end
+
+    Process.exit(self(), ret)
   end
 
   def from_upload_type(type) do
     case type do
       :booru  -> Hatoba.Upload.Booru
       :move   -> Hatoba.Upload.Move
-      :remote -> Hatoba.Upload.Remote
+      #:remote -> Hatoba.Upload.Remote
       _ -> nil
     end
   end

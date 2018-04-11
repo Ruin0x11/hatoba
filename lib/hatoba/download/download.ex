@@ -2,7 +2,7 @@ defmodule Hatoba.Download do
   use GenServer
 
   defstruct id: 0,
-    dest: %Hatoba.Upload{},
+    dest: %Hatoba.UploadType{},
     parent: nil,
     status: :not_started,
     url: "",
@@ -18,7 +18,11 @@ defmodule Hatoba.Download do
     GenServer.start_link(__MODULE__, [parent, id, url], name: via_tuple(id))
   end
 
-  defp via_tuple(id), do: {:via, Registry, {Registry.Hatoba, id}}
+  def start_link([parent, id, url, dest]) do
+    GenServer.start_link(__MODULE__, [parent, id, url, dest], name: via_tuple(id))
+  end
+
+  defp via_tuple(id), do: {:via, Registry, {Registry.Hatoba.Download, id}}
 
   def start(id) do
     GenServer.call(via_tuple(id), :start)
@@ -29,7 +33,8 @@ defmodule Hatoba.Download do
   end
 
   def files(dl) do
-    dir = Path.join("/tmp", dl.dir)
+    base_dir = Application.fetch_env!(:hatoba, :base_dir)
+    dir = Path.join(base_dir, dl.dir)
     dl.output
     |> Enum.map(&Path.join(dir, &1))
   end
@@ -43,8 +48,12 @@ defmodule Hatoba.Download do
   ## GenServer
 
   def init([parent, id, url]) do
+    init([parent, id, url, %Hatoba.UploadType{}])
+  end
+
+  def init([parent, id, url, dest]) do
     outdir = Base.encode16(:crypto.hash(:sha256, "#{id}#{url}"))
-    {:ok, %__MODULE__{id: id, parent: parent, url: url, dir: outdir}}
+    {:ok, %__MODULE__{id: id, parent: parent, url: url, dir: outdir, dest: dest}}
   end
 
   def handle_call(:status, _from, state) do
@@ -69,13 +78,14 @@ defmodule Hatoba.Download do
     |> Hatoba.Nani.source_type
     |> Hatoba.Download.Task.from_source_type
 
-    outdir = Path.join("/tmp", state.dir)
+    outdir = Application.fetch_env!(:hatoba, :base_dir)
+    |> Path.join(state.dir)
     :ok = File.mkdir_p(outdir)
 
-    # make sure this is run outside the task
-    parent = self()
-
     if task_type != nil && task_subtype != nil do
+      # make sure this is run outside the task
+      parent = self()
+
       {:ok, pid} = Task.Supervisor.start_child(Hatoba.TaskSupervisor, fn ->
         task_type.run(task_subtype, parent, outdir, state.url)
       end)
