@@ -35,8 +35,16 @@ defmodule Hatoba.Download do
   def files(dl) do
     base_dir = Application.fetch_env!(:hatoba, :base_dir)
     dir = Path.join(base_dir, dl.dir)
-    dl.output
-    |> Enum.map(&Path.join(dir, &1))
+    files = if Enum.empty?(dl.output) do
+      case File.ls(dir) do
+        {:ok, files} -> files
+        _ -> []
+      end
+    else
+      dl.output
+    end
+
+    files |> Enum.map(&Path.join(dir, &1))
   end
 
   def valid?(dl) do

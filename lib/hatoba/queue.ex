@@ -18,14 +18,14 @@ defmodule Hatoba.Queue do
     GenServer.call(:download_queue, {:status})
   end
 
-  def enqueue(arg) when is_list(arg) do
+  def add(arg) when is_list(arg) do
     Enum.each(arg, fn(a) ->
-      GenServer.call(:download_queue, {:enqueue, a})
+      GenServer.call(:download_queue, {:add, a})
     end)
   end
 
-  def enqueue(arg) do
-    GenServer.call(:download_queue, {:enqueue, arg})
+  def add(arg) do
+    GenServer.call(:download_queue, {:add, arg})
   end
 
   def clear do
@@ -47,15 +47,15 @@ defmodule Hatoba.Queue do
     {:reply, :ok, %__MODULE__{next_id: state.next_id}}
   end
 
-  def handle_call({:enqueue, arg}, _from, %__MODULE__{} = state) do
-    do_enqueue(arg, state)
+  def handle_call({:add, arg}, _from, %__MODULE__{} = state) do
+    do_add(arg, state)
   end
 
-  def handle_call({:enqueue, arg, dest}, _from, %__MODULE__{} = state) do
-    do_enqueue(arg, state, dest)
+  def handle_call({:add, arg, dest}, _from, %__MODULE__{} = state) do
+    do_add(arg, state, dest)
   end
 
-  defp do_enqueue(arg, state, dest \\ %Hatoba.UploadType{}) do
+  defp do_add(arg, state, dest \\ %Hatoba.UploadType{}) do
     %__MODULE__{downloading: downloading, queued: queued, next_id: next_id} = state
 
     IO.inspect "queue #{arg}"
