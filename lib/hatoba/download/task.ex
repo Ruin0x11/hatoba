@@ -21,7 +21,7 @@ defmodule Hatoba.Download.Task do
 
   def from_source_type(type) do
     case type do
-      #:image   -> {Hatoba.Download.Task,       Hatoba.Download.Image}
+      :image   -> {Hatoba.Download.Task,       Hatoba.Download.Image}
       :torrent -> {Hatoba.Download.StdoutTask, Hatoba.Download.Torrent}
       :booru   -> {Hatoba.Download.Task,       Hatoba.Download.Booru}
       #:booru2  -> {Hatoba.Download.Task,       Hatoba.Download.Booru2}

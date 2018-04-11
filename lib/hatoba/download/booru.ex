@@ -15,7 +15,7 @@ defmodule Hatoba.Download.Booru do
     if id != nil do
       download(parent, outpath, arg, base_uri, id)
     else
-      send parent, {:failure, "No such id"}
+      Process.exit(self(), {:failure, "No such id"})
     end
   end
 
@@ -37,7 +37,6 @@ defmodule Hatoba.Download.Booru do
     |> List.last
     |> URI.decode
 
-    send parent, {:filecount, 1}
     send parent, {:metadata, filename, metadata}
 
     HTTPoison.get!(url, %{}, stream_to: self(), timeout: 5_000_000)

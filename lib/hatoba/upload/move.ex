@@ -20,6 +20,8 @@ defmodule Hatoba.Upload.Move do
     File.mkdir_p(arg)
   end
 
+  ## TODO: handle files with the same name
+
   defp cp(source, destdir) do
     dest = source
     |> Path.split

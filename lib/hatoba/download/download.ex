@@ -8,7 +8,7 @@ defmodule Hatoba.Download do
     url: "",
     pid: nil,
     ref: nil,
-    filecount: 0,
+    filecount: 1,
     progress: %{},
     metadata: %{},
     output: [],
