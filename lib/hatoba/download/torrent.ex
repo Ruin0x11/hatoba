@@ -2,7 +2,7 @@ defmodule Hatoba.Download.Torrent do
   @behaviour Hatoba.Download.StdoutTask
 
   def process_stdout(data, state, parent) do
-    progress = Regex.run(~r/===\n\[#\w+ .*\/.*\(([0-9]+)%\) .*/, data)
+    progress = Regex.run(~r/\[#\w+.*\/.*\(([0-9]+)%\) .*/, data)
     dest = Regex.run(~r/\nFILE: (.*)\n---/, data)
 
     new_state = case dest do

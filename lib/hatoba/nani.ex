@@ -40,23 +40,35 @@ defmodule Hatoba.Nani do
   defp is_booru(uri), do: has_posts_api(uri, "/post.json") && has_post_id(uri)
 
   defp has_posts_api(uri, endpoint) do
-    data = uri
+    resp = uri
     |> base_uri
     |> URI.merge(endpoint)
     |> URI.to_string
-    |> HTTPotion.head
-    |> Map.from_struct
-    Map.get(data, :status_code) == 200
-      && String.contains?(content_type(data), "application/json")
+    |> HTTPoison.head
+
+    case resp do
+      {:ok, resp} ->
+        data = resp
+        |> Map.from_struct
+        Map.get(data, :status_code) == 200
+        && String.contains?(content_type(data), "application/json")
+      _ -> false
+    end
   end
 
   defp has_post_id(uri), do: Regex.match?(~r/[0-9]+$/, uri)
 
   defp is_torrent(uri) do
-    uri
-    |> HTTPotion.head
-    |> Map.from_struct
-    |> content_type == "application/x-bittorrent"
+    resp = uri
+    |> HTTPoison.head
+
+    case resp do
+      {:ok, resp} ->
+        resp
+        |> Map.from_struct
+        |> content_type == "application/x-bittorrent"
+      _ -> false
+    end
   end
 
   defp is_magnet_link(uri) do
@@ -66,17 +78,21 @@ defmodule Hatoba.Nani do
   end
 
   defp is_image_uri(uri) do
-    content_type = uri
-    |> HTTPotion.head
-    |> content_type
-    Enum.member?(["image/png", "image/jpeg", "image/gif"], content_type)
+    resp = uri |> HTTPoison.head
+
+    case resp do
+      {:ok, resp} ->
+        resp
+        |> content_type
+        |> (&(Enum.member?(["image/png", "image/jpeg", "image/gif"], &1))).()
+      _ -> false
+    end
   end
 
   defp content_type(response) do
     response
     |> Map.get(:headers)
-    |> Map.from_struct
-    |> Kernel.get_in([:hdrs, "content-type"])
+    |> Keyword.get(:"Content-Type")
   end
 
   defp base_uri(uri) do

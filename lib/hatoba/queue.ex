@@ -1,9 +1,10 @@
 defmodule Hatoba.Queue do
   use GenServer
 
-  defstruct downloading: %{},
-    finished: %{},
-    failed: %{},
+  defstruct downloading: %MapSet{},
+    finished: %MapSet{},
+    uploading: %MapSet{},
+    failed: %MapSet{},
     queued: :queue.from_list([]),
     next_id: 0
 
@@ -34,7 +35,10 @@ defmodule Hatoba.Queue do
   def init(:ok), do: {:ok, %__MODULE__{}}
 
   def handle_call({:status}, _from, state) do
-    {:reply, state, state}
+    [down, up, fin, fail] =
+      [state.downloading, state.uploading, state.finished, state.failed]
+    |> Enum.map(fn(x) -> Enum.map(x, &(Hatoba.Download.status(&1) |> Map.from_struct)) end)
+    {:reply, %{downloading: down, uploading: up, finished: fin, failed: fail}, state}
   end
 
   def handle_call({:clear}, _from, state) do
@@ -62,15 +66,12 @@ defmodule Hatoba.Queue do
     {new_dl, new_q} =
       case :queue.out(state.queued) do
         {:empty, q} ->
-          {Map.delete(state.downloading, id), q}
+          {MapSet.delete(state.downloading, id), q}
         {{:value, {next_id, _}}, q} ->
-          {run_job(state.downloading, next_id) |> Map.delete(id), q}
+          {run_job(state.downloading, next_id) |> MapSet.delete(id), q}
       end
 
-    IO.inspect id
-    IO.inspect state.downloading
-    IO.inspect new_dl
-    new_map = Map.get(state, key) |> Map.put(id, true)
+    new_map = Map.get(state, key) |> MapSet.put(id)
     new_state = Map.put(state, key, new_map)
     {:noreply, %__MODULE__{ new_state |
                             :downloading =>  new_dl,
@@ -90,6 +91,6 @@ defmodule Hatoba.Queue do
 
   defp run_job(downloading, id) do
     Hatoba.Download.start(id)
-    Map.put(downloading, id, true)
+    MapSet.put(downloading, id)
   end
 end

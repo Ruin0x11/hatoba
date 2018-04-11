@@ -2,6 +2,7 @@ defmodule Hatoba.Download do
   use GenServer
 
   defstruct id: 0,
+    dest: %Hatoba.Upload{},
     parent: nil,
     status: :not_started,
     url: "",
@@ -27,7 +28,17 @@ defmodule Hatoba.Download do
     GenServer.call(via_tuple(id), :status)
   end
 
-  ## Output is sha256 of input
+  def files(dl) do
+    dir = Path.join("/tmp", dl.dir)
+    dl.output
+    |> Enum.map(&Path.join(dir, &1))
+  end
+
+  def valid?(dl) do
+    dl
+    |> Hatoba.Download.files
+    |> Enum.all?(&File.exists? &1)
+  end
 
   ## GenServer
 

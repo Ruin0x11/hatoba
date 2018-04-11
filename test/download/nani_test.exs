@@ -3,22 +3,23 @@ defmodule Hatoba.NaniTest do
 
   import Mock
   alias Porcelain.Result
-  alias HTTPotion.Response
-  alias HTTPotion.Headers
+  alias HTTPoison.Response
 
   ## lots of mocks, since content discerning interacts with web services which we can't determine
   ## the validity of in a pure manner
   setup_with_mocks([
     {Porcelain, [], [shell: fn(_) -> %Result{status: 1} end]},
-    {HTTPotion, [], [head: fn(_) -> response(404) end]},
+    {HTTPoison, [], [head: fn(_) -> response(404) end]},
   ]) do
     {:ok, foo: "foo"}
   end
 
   defp content_response(content_type, code \\ 200) do
-    %Response {
-      status_code: code,
-      headers: %Headers { hdrs: %{ "content-type" => content_type } }
+    {:ok,
+     %Response {
+       status_code: code,
+       headers: ["Content-Type": content_type]
+     }
     }
   end
 
@@ -37,7 +38,7 @@ defmodule Hatoba.NaniTest do
   end
 
   test "discerns booru" do
-    with_mock HTTPotion, [head: fn(url) ->
+    with_mock HTTPoison, [head: fn(url) ->
                            if String.ends_with?(url, "post.json") do
                              content_response("application/json; charset=utf-8")
                            else
@@ -51,7 +52,7 @@ defmodule Hatoba.NaniTest do
   end
 
   test "discerns booru2" do
-    with_mock HTTPotion, [head: fn(url) ->
+    with_mock HTTPoison, [head: fn(url) ->
                            if String.ends_with?(url, "posts.json") do
                              content_response("application/json; charset=utf-8")
                            else
@@ -63,7 +64,7 @@ defmodule Hatoba.NaniTest do
   end
 
   test "discerns torrent URL" do
-    with_mock HTTPotion, [head: fn(url) ->
+    with_mock HTTPoison, [head: fn(url) ->
                            if String.ends_with?(url, ".torrent") do
                              content_response("application/x-bittorrent")
                            else
@@ -80,7 +81,7 @@ defmodule Hatoba.NaniTest do
   end
 
   test "discerns image URL" do
-    with_mock HTTPotion, [head: fn(_) -> content_response("image/png") end] do
+    with_mock HTTPoison, [head: fn(_) -> content_response("image/gif") end] do
       assert Hatoba.Nani.source_type("https://www.w3.org/People/mimasa/test/imgformat/img/w3c_home.gif") == :image
     end
   end
@@ -91,7 +92,7 @@ defmodule Hatoba.NaniTest do
   end
 
   test "fails discerning unsupported URLs" do
-    with_mock HTTPotion, [head: fn(_) -> response(200) end] do
+    with_mock HTTPoison, [head: fn(_) -> response(200) end] do
       assert Hatoba.Nani.source_type("https://www.google.com") == :unknown
     end
   end

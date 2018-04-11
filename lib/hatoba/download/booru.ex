@@ -3,7 +3,7 @@ defmodule BooruTag do
 end
 
 defmodule BooruPost do
-  defstruct [:id, :tags, :source, :md5, :file_url, :has_children, :parent_id]
+  defstruct [:id, :tags, :source, :rating, :md5, :file_url, :has_children, :parent_id]
 end
 
 defmodule Hatoba.Download.Booru do
@@ -29,42 +29,43 @@ defmodule Hatoba.Download.Booru do
     |> Map.get(:file_url)
 
     if url == nil do
-        Process.exit(self(), {:failure, "Network error."})
+        Process.exit(self(), {:failure, "Bad URL or network error."})
     end
 
     filename = url
     |> Path.split
     |> List.last
+    |> URI.decode
 
     send parent, {:filecount, 1}
     send parent, {:metadata, filename, metadata}
 
-    url |> HTTPotion.get(stream_to: self(), timeout: 5_000_000)
+    url |> HTTPoison.get(stream_to: self(), timeout: 5_000_000)
 
     receive_data(parent, filename, outpath, total_bytes: :unknown, data: "")
   end
 
   defp receive_data(parent, filename, outpath, total_bytes: total_bytes, data: data) do
     receive do
-      %HTTPotion.AsyncHeaders{headers: h} ->
+      %HTTPoison.AsyncHeaders{headers: h} ->
         {total_bytes, _} = h[:"Content-Length"] |> Integer.parse
         receive_data(parent, filename, outpath, total_bytes: total_bytes, data: data)
 
-      %HTTPotion.AsyncChunk{chunk: new_data} ->
+      %HTTPoison.AsyncChunk{chunk: new_data} ->
         accumulated_data = data <> new_data
         accumulated_bytes = byte_size(accumulated_data)
         percent = accumulated_bytes / total_bytes * 100 |> Float.round(2)
         send parent, {:progress, filename, percent}
         receive_data(parent, filename, outpath, total_bytes: total_bytes, data: accumulated_data)
 
-      %HTTPotion.AsyncEnd{} ->
+      %HTTPoison.AsyncEnd{} ->
         [outpath, filename]
         |> Path.join
         |> File.write!(data)
 
         Process.exit(self(), {:success, [filename]})
 
-      %HTTPotion.AsyncTimeout{} ->
+      %HTTPoison.Error{reason: {:closed, :timeout}} ->
         Process.exit(self(), {:failure, "Timed out."})
 
     end
@@ -106,7 +107,7 @@ defmodule Hatoba.Download.Booru do
     base_uri
     |> URI.merge(endpoint)
     |> URI.to_string
-    |> HTTPotion.get
+    |> HTTPoison.get
     |> Map.get(:body)
   end
 

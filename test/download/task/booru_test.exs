@@ -2,11 +2,10 @@ defmodule Hatoba.Download.BooruTest do
   use ExUnit.Case, async: false
 
   import Mock
-  alias HTTPotion.Response
-  alias HTTPotion.Headers
+  alias HTTPoison.Response
 
   setup_with_mocks([
-    {HTTPotion, [], [get: fn(url) ->
+    {HTTPoison, [], [get: fn(url) ->
                       cond do
                         String.contains?(url, "post.json") -> response(200, metadata())
                         String.contains?(url, "tag.json") -> response(200, '[{"name": "", "type": "", "ambiguous": false}]')
@@ -14,7 +13,7 @@ defmodule Hatoba.Download.BooruTest do
                         true -> response(404)
                       end
                     end]},
-    {HTTPotion, [], [get: fn(_, _) ->
+    {HTTPoison, [], [get: fn(_, _) ->
                       cond do
                         true -> response(404)
                       end
@@ -31,15 +30,15 @@ defmodule Hatoba.Download.BooruTest do
     %Response {
       body: body,
       status_code: code,
-      headers: %Headers { hdrs: %{} }
+      headers: []
     }
   end
 
   test "provides progress" do
     %Task{pid: pid} = run("https://yande.re/post/show/12345")
 
-    send pid, %HTTPotion.AsyncHeaders{headers: ["Content-Length": "100"]}
-    send pid, %HTTPotion.AsyncChunk{chunk: String.duplicate("a", 50)}
+    send pid, %HTTPoison.AsyncHeaders{headers: ["Content-Length": "100"]}
+    send pid, %HTTPoison.AsyncChunk{chunk: String.duplicate("a", 50)}
 
     assert_receive {:progress, "the_file", 50.0}, 500
   end
@@ -61,7 +60,7 @@ defmodule Hatoba.Download.BooruTest do
     {:ok, pid} = Hatoba.Download.Task.start([Hatoba.Download.Booru, self(), "/tmp", "https://yande.re/post/show/12345"])
     ref = Process.monitor(pid)
 
-    send pid, %HTTPotion.AsyncTimeout{}
+    send pid, %HTTPoison.Error{reason: {:closed, :timeout}}
 
     assert_receive {:DOWN, ^ref, :process, ^pid, {:failure, "Timed out."}}, 500
   end
